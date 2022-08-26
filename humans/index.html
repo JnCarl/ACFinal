@@ -1,4 +1,6 @@
 <!doctype html>
+<!--- El codigo deber se ejecutado en un servidor http para que pueda precedir el modelo entrenado para ello
+puede ejecutar en un terminal dentra de la carpeta index.html "python -m htt.server 8000"--->
 <html lang="en">
 
 <head>
@@ -24,44 +26,49 @@
 
     <main>
 
-
+         <!--obtener la camara web y se le esconde
+        se crea un canvas -->
         <div class="b-example-divider"></div>
 
         <div class="container mt-5">
             <div class="row">
                 <div class="col-12 col-md-4 offset-md-4 text-center">
-                    <video id="video" playsinline autoplay style="width: 1px;"></video>
-                    <canvas id="canvas" width="400" height="400" style="max-width: 100%;"></canvas>
+                    <video id="video" playsinline autoplay style="width: 1px;"></video><!--mostrar la camara-->
+                    <canvas id="canvas" width="400" height="400" style="max-width: 100%;"></canvas> <!--rediccionamiento de camara al tamaño de las imaganes entranado en el modelo-->
                     <canvas id="otrocanvas" width="150" height="150" style="display: none"></canvas>
                     <div id="resultado"></div>
                 </div>
             </div>
         </div>
     </main>
+    <!--importar la libreria de tensor flow para la correcnta funcionalidad de la prediccion del clasificado-->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
 
     <script type="text/javascript">
 
-        var tamano = 400;
-        var video = document.getElementById("video");
+        var tamano = 400;//tamaño con la que se inicializa la camara
+        var video = document.getElementById("video");//obtencion de camara
         var canvas = document.getElementById("canvas");
-        var otrocanvas = document.getElementById("otrocanvas");
+        var otrocanvas = document.getElementById("otrocanvas");//redireccionamiento de camara a tamaño de modelo entrenado
+        var ctx = canvas.getContext ("2d");
         var ctx = canvas.getContext("2d");
         var currentStream = null;
         var facingMode = "user";
 
-        var modelo = null;
-
+        var modelo = null;//variable para agregar el modelo entranado para la clasificacion
+        
+         //cargar el modelo para hacer predicciones
         (async () => {
             console.log("Cargando modelo...");
-            modelo = await tf.loadLayersModel("model1.json");
+            modelo = await tf.loadLayersModel("model1.json"); //carga de modelo de entrenamoiento
             console.log("Modelo cargado");
         })();
 
         window.onload = function () {
             mostrarCamara();
         }
-
+        
+        //funcion que muestra la camara de tamaño 400
         function mostrarCamara() {
             var opciones = {
                 audio: false,
@@ -87,51 +94,60 @@
                 alert("No existe la funcion getUserMedia");
             }
         }
-
-
-
+        
+        //funcion procersar para ir actulizando constamente lo que video  
         function procesarCamara() {
             ctx.drawImage(video, 0, 0, tamano, tamano, 0, 0, tamano, tamano);
             setTimeout(procesarCamara, 20);
         }
 
         function predecir() {
+            //cargar modelo
             if (modelo != null) {
                 resample_single(canvas, 100, 100, otrocanvas);
-
+                
                 //Hacer la predicción
+                //obtener la informacion de los pixeles
                 var ctx2 = otrocanvas.getContext("2d");
                 var imgData = ctx2.getImageData(0, 0, 100, 100);
 
-                var arr = [];
-                var arr100 = [];
-
+                var arr = [];//arreglo final
+                var arr100 = []; // arreglo que ira llenando 100 pixeles
+                
+                //iterar para obtener todoos los pixeles y obtener los colores verder rojo y azul de cada pixel 
                 for (var p = 0; p < imfgData.data.length; p += 4) {
                     var rojo = imgData.data[p] / 255;
                     var verde = imgData.data[p + 1] / 255;
                     var azul = imgData.data[p + 2] / 255;
-
+                    
+                    //obtencion de escala de grises
                     var gris = (rojo + verde + azul) / 3;
-
-                    arr100.push([gris]);
+                    
+                    
+                    //convesion de pixeles de imagenes a arreglos 
+                    //numericos de la forma "1, 100, 100, 1" para que el modelo de tensorflow
+                    // pueda entender para la prediccion  
+                    arr100.push([gris]); //100 pixeles
                     if (arr100.length == 100) {
-                        arr.push(arr100);
-                        arr100 = [];
+                        arr.push(arr100); //borra pixeles
+                        arr100 = []; //agrega pixeles
                     }
                 }
 
-                arr = [arr];
+                arr = [arr];//arreglo como primer indice del array
 
-                var tensor = tf.tensor4d(arr);
-                var resultado = modelo.predict(tensor).dataSync();
-
+                var tensor = tf.tensor4d(arr);// conversion del array a un arreglo de tensorflow
+                var resultado = modelo.predict(tensor).dataSync();//predecir
+                
+                //validacion de imagen 
+                //mas se acerca a 0 mayor probabilidad sea caballo
                 var respuesta;
                 if (resultado <= 0.5) {
                     respuesta = "Caballo";
                 } else {
                     respuesta = "Humano";
                 }
-                document.getElementById("resultado").innerHTML = respuesta;
+                document.getElementById("resultado").innerHTML = respuesta;//llamada de la funcion de prediccion cada 150 milisegundo
 
             }
 
